@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.appname }}-pdb-v2
+spec:
+  minAvailable: {{ .Values.autoscaling.minAvailable }}
+  selector:
+    matchLabels:
+      version: {{ .Values.label.version2 }}

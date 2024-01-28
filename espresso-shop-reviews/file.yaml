@@ -1,0 +1,200 @@
+NAME: shop-reviews
+LAST DEPLOYED: Sun Jan 28 02:04:54 2024
+NAMESPACE: s6rasheedat
+STATUS: pending-install
+REVISION: 1
+TEST SUITE: None
+HOOKS:
+MANIFEST:
+---
+# Source: espresso-shop-reviews/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: espresso-shop-reviews-pdb-v1
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      version: v1
+---
+# Source: espresso-shop-reviews/templates/pdb2.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: espresso-shop-reviews-pdb-v2
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      version: v2
+---
+# Source: espresso-shop-reviews/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: espresso-shop-reviews-sa-v1
+  labels:
+    app: espresso-shop-reviews-v1
+---
+# Source: espresso-shop-reviews/templates/serviceaccount2.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: espresso-shop-reviews-sa-v2
+  labels:
+    app: espresso-shop-reviews-v2
+---
+# Source: espresso-shop-reviews/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: espresso-shop-reviews-svc
+  labels:
+    app: v1
+    app2: v2
+spec:
+  type: NodePort
+  ports:
+    - port: 8092
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: SERVICE_VERSION
+---
+# Source: espresso-shop-reviews/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: espresso-shop-reviews-v1
+  labels:
+    app: espresso-shop-reviews-v1
+spec:
+  selector:
+    matchLabels:
+      version: v1
+      app: espresso-shop-reviews
+  template:
+    metadata:
+      labels:
+        version: v1
+        app: espresso-shop-reviews
+    spec:
+      serviceAccountName: espresso-shop-reviews-sa-v1
+      securityContext:
+        {}
+      containers:
+        - name: espresso-shop-reviews
+          securityContext:
+            {}
+          image: "rasheedata/espresso-reviews:v1.0.0"
+          env:
+            - name: SERVICE_VERSION
+              value: "v1"
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: testing
+            - name: POSTGRES_DB
+              value: database
+            - name: HOSTNAME
+              value: postgres-postgresql-ha-pgpool
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+---
+# Source: espresso-shop-reviews/templates/deployment2.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: espresso-shop-reviews-v2
+  labels:
+    app: espresso-shop-reviews
+spec:
+  selector:
+    matchLabels:
+      version: v2
+      app: espresso-shop-reviews
+  template:
+    metadata:
+      labels:
+        version: v2
+        app: espresso-shop-reviews
+    spec:
+      serviceAccountName: espresso-shop-reviews-sa-v2
+      securityContext:
+        {}
+      containers:
+        - name: espresso-shop-reviews
+          securityContext:
+            {}
+          image: "rasheedata/espresso-reviews:v1.0.0"
+          env:
+            - name: SERVICE_VERSION
+              value: "v2"
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: testing
+            - name: POSTGRES_DB
+              value: database
+            - name: HOSTNAME
+              value: postgres-postgresql-ha-pgpool
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+---
+# Source: espresso-shop-reviews/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: espresso-shop-reviews-hpa-v1
+  labels:
+    app: espresso-shop-reviews-v1
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: espresso-shop-reviews-v1
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+# Source: espresso-shop-reviews/templates/hpa2.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: espresso-shop-reviews-hpa-v2
+  labels:
+    app: espresso-shop-reviews-v2
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: espresso-shop-reviews-v2
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+NOTES:
+1. Get the application URL by running these commands:
+  export NODE_PORT=$(kubectl get --namespace s6rasheedat -o jsonpath="{.spec.ports[0].nodePort}" services shop-reviews-espresso-shop-reviews)
+  export NODE_IP=$(kubectl get nodes --namespace s6rasheedat -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
